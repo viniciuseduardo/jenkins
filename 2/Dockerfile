@@ -1,4 +1,4 @@
-FROM openshift/origin:v3.7.0
+FROM openshift/origin
 
 # Jenkins image for OpenShift
 #
@@ -17,8 +17,8 @@ MAINTAINER Ben Parees <bparees@redhat.com>
 ENV JENKINS_VERSION=2 \
     HOME=/var/lib/jenkins \
     JENKINS_HOME=/var/lib/jenkins \
-    JENKINS_UC=https://updates.jenkins-ci.org \
-    OPENSHIFT_JENKINS_IMAGE_VERSION=3.7 \
+    JENKINS_UC=https://updates.jenkins.io \
+    OPENSHIFT_JENKINS_IMAGE_VERSION=3.11 \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
@@ -54,7 +54,7 @@ RUN /usr/local/bin/install-plugins.sh /opt/openshift/base-plugins.txt && \
     # Currently jenkins v2 does not embed any plugins, but for reference:
     # touch /opt/openshift/plugins/credentials.jpi.pinned && \
     rmdir /var/log/jenkins && \
-    chmod 775 /etc/passwd && \
+    chmod 664 /etc/passwd && \
     chmod -R 775 /etc/alternatives && \
     chmod -R 775 /var/lib/alternatives && \
     chmod -R 775 /usr/lib/jvm && \
@@ -87,11 +87,15 @@ RUN /usr/local/bin/install-plugins.sh /opt/openshift/base-plugins.txt && \
     unlink /usr/share/man/man1/unpack200.1.gz && \
     chown -R 1001:0 /opt/openshift && \
     /usr/local/bin/fix-permissions /opt/openshift && \
+    /usr/local/bin/fix-permissions /opt/openshift/configuration/init.groovy.d && \
     /usr/local/bin/fix-permissions /var/lib/jenkins && \
     /usr/local/bin/fix-permissions /var/log
+
+
+RUN /usr/local/bin/install-plugins.sh /opt/openshift/additionals-plugins.txt
 
 VOLUME ["/var/lib/jenkins"]
 
 USER 1001
-ENTRYPOINT []
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/libexec/s2i/run"]

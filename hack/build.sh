@@ -12,7 +12,7 @@ OS=$1
 VERSION=$2
 
 DOCKERFILE_PATH=""
-BASE_IMAGE_NAME="docker.io/openshift/jenkins"
+BASE_IMAGE_NAME="docker-registry-default.40.76.19.70.nip.io/openshift/jenkins"
 RHEL_BASE_IMAGE_NAME="registry.access.redhat.com/openshift3/jenkins"
 
 # Cleanup the temporary Dockerfile created by docker build with version
@@ -35,13 +35,13 @@ function docker_build_with_version {
 dirs=${VERSION:-$VERSIONS}
 
 # enforce building of the slave-base image if we're building any of
-# the slave images.  Note that we might build the slave-base
+# the slave/agent images.  Note that we might build the slave-base
 # twice if it was explicitly requested.  That's ok, it's
 # cheap to build it a second time.  The important thing
 # is we have to build it before building any other
 # slave image.
 for dir in ${dirs}; do
-  if [[ "$dir" =~ "slave" ]]; then
+  if [[ "$dir" =~ "slave" || "$dir" =~ "agent" ]]; then
     dirs=( "slave-base ${dirs[@]}")
     break
   fi
@@ -68,7 +68,7 @@ for dir in ${dirs}; do
   fi
 
   if [[ ! -z "${TEST_MODE}" ]]; then
-    IMAGE_NAME=${IMAGE_NAME} test/run
+    ( cd test && IMAGE_NAME=${IMAGE_NAME} go test -timeout 30m -v -ginkgo.v . )
     # always re-tag slave-base because we need it to build the other images even if we are just testing them.
     if [[ $? -eq 0 ]] && [[ "${TAG_ON_SUCCESS}" == "true" || "${dir}" == "slave-base" ]]; then
       echo "-> Re-tagging ${IMAGE_NAME} image to ${IMAGE_NAME%"-candidate"}"

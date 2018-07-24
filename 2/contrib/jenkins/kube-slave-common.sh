@@ -24,12 +24,12 @@ JNLP_PORT=${!T_PORT}
 
 export JNLP_PORT=${JNLP_PORT:-50000}
 
-NODEJS_SLAVE=${NODEJS_SLAVE_IMAGE:-registry.access.redhat.com/openshift3/jenkins-slave-nodejs-rhel7:${JENKINS_SLAVE_IMAGE_TAG}}
-MAVEN_SLAVE=${MAVEN_SLAVE_IMAGE:-registry.access.redhat.com/openshift3/jenkins-slave-maven-rhel7:${JENKINS_SLAVE_IMAGE_TAG}}
+NODEJS_SLAVE=${NODEJS_SLAVE_IMAGE:-registry.access.redhat.com/openshift3/jenkins-agent-nodejs-8-rhel7:${JENKINS_SLAVE_IMAGE_TAG}}
+MAVEN_SLAVE=${MAVEN_SLAVE_IMAGE:-registry.access.redhat.com/openshift3/jenkins-agent-maven-35-rhel7:${JENKINS_SLAVE_IMAGE_TAG}}
 # if the master is running the centos image, use the centos slave images.
 if [[ `grep CentOS /etc/redhat-release` ]]; then
-  NODEJS_SLAVE=${NODEJS_SLAVE_IMAGE:-openshift/jenkins-slave-nodejs-centos7:${JENKINS_SLAVE_IMAGE_TAG}}
-  MAVEN_SLAVE=${MAVEN_SLAVE_IMAGE:-openshift/jenkins-slave-maven-centos7:${JENKINS_SLAVE_IMAGE_TAG}}
+  NODEJS_SLAVE=${NODEJS_SLAVE_IMAGE:-openshift/jenkins-agent-nodejs-8-centos7:${JENKINS_SLAVE_IMAGE_TAG}}
+  MAVEN_SLAVE=${MAVEN_SLAVE_IMAGE:-openshift/jenkins-agent-maven-35-centos7:${JENKINS_SLAVE_IMAGE_TAG}}
 fi
 
 JENKINS_SERVICE_NAME=${JENKINS_SERVICE_NAME:-JENKINS}
@@ -72,8 +72,11 @@ fi
 # generate_kubernetes_config generates a configuration for the kubernetes plugin
 function generate_kubernetes_config() {
     [ -z "$oc_cmd" ] && return
-    [ ! has_service_account ] && return
-    local crt_contents=$(cat "${KUBE_CA}")
+    [ ! has_service_account ] && return   
+    local crt_contents=$(openssl x509 -in "${KUBE_CA}")
+    if [ $? -eq 1 ] ; then
+      crt_contents=""
+    fi
     echo "
     <org.csanchez.jenkins.plugins.kubernetes.KubernetesCloud>
       <name>openshift</name>
@@ -143,6 +146,7 @@ function generate_kubernetes_config() {
       </templates>
       <serverUrl>https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}</serverUrl>
       <skipTlsVerify>false</skipTlsVerify>
+      <addMasterProxyEnvVars>true</addMasterProxyEnvVars>
       <serverCertificate>${crt_contents}</serverCertificate>
       <namespace>${PROJECT_NAME}</namespace>
       <jenkinsUrl>http://${JENKINS_SERVICE_HOST}:${JENKINS_SERVICE_PORT}</jenkinsUrl>

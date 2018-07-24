@@ -1,63 +1,79 @@
-openshift-pipeline:1.0.52
-openshift-login:1.0.5
-openshift-client:1.0.2
+openshift-pipeline:1.0.54
+openshift-login:1.0.9
+openshift-client:1.0.14
 
 
 # kubernetes plugin - https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin
-kubernetes:1.1.3
+# 1.6.0 has the support we added for allowing the use of pod yaml for pod template
+# config from the config panel (there was a flavor for this already with the k8s plugin's
+# pipeline DSL, and 1.6.2 has the support for opting in the transfer of proxy related
+# env vars from the master to the client, and 1.7.1 fixes
+# https://issues.jenkins-ci.org/browse/SECURITY-883
+kubernetes:1.7.1
 
 # fabric8 openshift sync
-openshift-sync:0.1.32
+openshift-sync:1.0.23
 
-# Pipeline plugin - https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin
-# 2.5 now includes pipeline-model-definition (declaritive pipeline)
-# 2.4 brought in pipeline-milestone-step
-workflow-aggregator:2.5
-
-
-# remote loader https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Remote+Loader+Plugin
-workflow-remote-loader:1.2
-
-# mercurial - https://wiki.jenkins-ci.org/display/JENKINS/Mercurial+Plugin
-mercurial:1.54
-matrix-project:1.7.1
-multiple-scms:0.6
-ssh-credentials:1.13
-
-# Pipeline Utility Steps Plugin - https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Utility+Steps+Plugin
-pipeline-utility-steps:1.1.5
-
-# some plugins helpful for global shared libs were broken out of workflow aggregator
-pipeline-github-lib:1.0
-github-organization-folder:1.6
-
-# Jenkins v2 specific
-matrix-auth:1.5
-blueocean:1.1.6
-
-# Legacy stuff
-mapdb-api:1.0.1.0
-subversion:2.9
+# we leverage this plugin in the openshift-client DSL groovy shim
+lockable-resources:2.3
 
 # explicitly pull in plugins previously pulled in by dependencies because of
-# security advisories  ...exclude plugins from 
+# security advisories  ...exclude plugins from
 # advisories that were not previously pulled in by what is listed above
 # also, as the plugins above raise their dependency levels for these plugins let's see about removing
 # items from the list below
 #
 # processed sec adv https://jenkins.io/blog/2017/07/10/security-advisory/
 # processed sec adv https://jenkins.io/security/advisory/2017-08-07/
+# processed sec adv https://jenkins.io/security/advisory/2018-01-22/
+# processed sec adv https://jenkins.io/security/advisory/2018-02-05/
+# processed sec adv https://jenkins.io/security/advisory/2018-02-14/
+# processed sec adv https://jenkins.io/security/advisory/2018-02-26/
+# processed sec adv https://jenkins.io/security/advisory/2018-03-26/
+# processed sec adv https://jenkins.io/security/advisory/2018-04-16/
+# processed sec adv https://jenkins.io/security/advisory/2018-06-04/
+# processed sec adv https://jenkins.io/security/advisory/2018-06-25/
 #
-config-file-provider:2.16.2
-docker-commons:1.8
-git:3.3.2
-git-client:2.4.4
-github-branch-source:2.0.8
-job-dsl:1.60
-parameterized-trigger:2.35.1
-pipeline-build-step:2.5.1
+htmlpublisher:1.16
+mailer:1.21
+config-file-provider:2.17
+docker-commons:1.11
+job-dsl:1.68
+parameterized-trigger:2.35.2
+pipeline-build-step:2.7
 pipeline-input-step:2.8
-workflow-cps:2.39
-script-security:1.31
+script-security:1.41
+credentials-binding:1.15
+junit:1.24
+workflow-durable-task-step:2.18
+workflow-support:2.18
+git:3.9.1
+mercurial:2.3
+subversion:2.10.3
+github:1.29.2
+github-branch-source:2.3.6
 
+# Legacy stuff
+mapdb-api:1.0.9.0
 
+# remote loader https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Remote+Loader+Plugin
+workflow-remote-loader:1.4
+
+matrix-project:1.12
+ssh-credentials:1.14
+
+# Pipeline Utility Steps Plugin - https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Utility+Steps+Plugin
+pipeline-utility-steps:1.5.1
+
+# some plugins helpful for global shared libs were broken out of workflow aggregator
+pipeline-github-lib:1.0
+github-organization-folder:1.6
+
+# Jenkins v2 specific
+matrix-auth:2.2
+blueocean:1.4.1
+
+# Pipeline plugin - https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin
+# 2.5 now includes pipeline-model-definition (declaritive pipeline)
+# 2.4 brought in pipeline-milestone-step
+workflow-aggregator:2.5

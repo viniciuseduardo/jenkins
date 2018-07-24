@@ -114,7 +114,7 @@ copy_reference_file() {
             action=${action:-"INSTALLED"}
             log=true
             mkdir -p "$JENKINS_HOME/${dir:23}"
-	    # if done on rhel, we may need to override a link to /usr/lib/jenkins, so include --remove-destination
+            # if done on rhel, we may need to override a link to /usr/lib/jenkins, so include --remove-destination
             cp --remove-destination -r "${f}" "$JENKINS_HOME/${rel}";
             # pin plugins on initial copy
             touch "$JENKINS_HOME/${rel}.pinned"
@@ -129,7 +129,7 @@ copy_reference_file() {
             action="INSTALLED"
             log=true
             mkdir -p "$JENKINS_HOME/${dir:23}"
-	    # if done on rhel, we may need to override a link to /usr/lib/jenkins, so include --remove-destination
+            # if done on rhel, we may need to override a link to /usr/lib/jenkins, so include --remove-destination
             cp --remove-destination -r "${f}" "$JENKINS_HOME/${rel}";
         else
             action="SKIPPED"
@@ -147,6 +147,10 @@ copy_reference_file() {
 
 REF_DIR=${REF:-/opt/openshift/plugins}
 FAILED="$REF_DIR/failed-plugins.txt"
+
+JENKINS_WAR=/usr/lib/jenkins/jenkins.war
+
+INCREMENTAL_BUILD_ARTIFACTS_DIR="/tmp/artifacts"
 
 function getLockFile() {
     echo -n "$REF_DIR/${1}.lock"
@@ -198,12 +202,31 @@ function doDownload() {
         return 0
     fi
 
-    JENKINS_UC_DOWNLOAD=${JENKINS_UC_DOWNLOAD:-"$JENKINS_UC/download"}
+    # Check if the plugin is cached and in correct version; if so, use it instead of downloading
+    # Some plugins do not follow the naming conventions and include the "-plugin" suffix; both cases need to be covered
+    for pluginFilename in "$plugin.jpi" "$plugin-plugin.jpi"; do
+        local cachedPlugin="$INCREMENTAL_BUILD_ARTIFACTS_DIR/plugins/$pluginFilename"
+        if test -f "$cachedPlugin" && [[ $(get_plugin_version "$cachedPlugin") == "$version" ]]; then
+            echo "Copying plugin from a cache created by s2i: $cachedPlugin"
+            cp "$cachedPlugin" "$jpi"
+            return 0
+        fi
+    done
 
-    url="$JENKINS_UC_DOWNLOAD/plugins/$plugin/$version/${plugin}.hpi"
+    if [[ "$version" == "latest" && -n "$JENKINS_UC_LATEST" ]]; then
+        # If version-specific Update Center is available, which is the case for LTS versions,
+        # use it to resolve latest versions.
+        url="$JENKINS_UC_LATEST/latest/${plugin}.hpi"
+    elif [[ "$version" == "experimental" && -n "$JENKINS_UC_EXPERIMENTAL" ]]; then
+        # Download from the experimental update center
+        url="$JENKINS_UC_EXPERIMENTAL/latest/${plugin}.hpi"
+    else
+        JENKINS_UC_DOWNLOAD=${JENKINS_UC_DOWNLOAD:-"$JENKINS_UC/download"}
+        url="$JENKINS_UC_DOWNLOAD/plugins/$plugin/$version/${plugin}.hpi"
+    fi
 
     echo "Downloading plugin: $plugin from $url"
-    curl --connect-timeout 5 --retry 5 --retry-delay 0 --retry-max-time 60 -s -f -L "$url" -o "$jpi"
+    curl --connect-timeout "${CURL_CONNECTION_TIMEOUT:-20}" --retry "${CURL_RETRY:-5}" --retry-delay "${CURL_RETRY_DELAY:-0}" --retry-max-time "${CURL_RETRY_MAX_TIME:-60}" -s -f -L "$url" -o "$jpi"
     return $?
 }
 
@@ -244,27 +267,27 @@ function resolveDependencies() {
         local versionFromPluginParam
         if [[ $d == *"resolution:=optional"* ]]; then
             echo "Examining optional dependency $plugin"
-	    optional_jpi="$(getArchiveFilename "$plugin")"
-	    if [ ! -f "${optional_jpi}" ]; then
-		echo "Optional dependency $plugin not installed already, skipping"
-		continue
-	    fi
-	    echo "Optional dependency $plugin already installed, need to determine if it is at a sufficient version"
+            optional_jpi="$(getArchiveFilename "$plugin")"
+            if [ ! -f "${optional_jpi}" ]; then
+                echo "Optional dependency $plugin not installed already, skipping"
+                continue
+            fi
+            echo "Optional dependency $plugin already installed, need to determine if it is at a sufficient version"
             versionFromPluginParam="$(cut -d';' -f1 - <<< "$d")"
-	else
+        else
             versionFromPluginParam=$d
         fi
         local pluginInstalled
         local minVersion; minVersion=$(versionFromPlugin "${versionFromPluginParam}")
 
-	set +o pipefail
-	local filename; filename=$(getArchiveFilename "$plugin")
-	local previouslyDownloadedVersion; previouslyDownloadedVersion=$(get_plugin_version $filename)
-	set -o pipefail
-	
+    set +o pipefail
+    local filename; filename=$(getArchiveFilename "$plugin")
+    local previouslyDownloadedVersion; previouslyDownloadedVersion=$(get_plugin_version $filename)
+    set -o pipefail
+    
         # ${bundledPlugins} checks for plugins bundled in the jenkins.war file; per 
         # https://wiki.jenkins-ci.org/display/JENKINS/Bundling+plugins+with+Jenkins this is getting
-        # phased out, but we are keeping this check in for now while that transition bakes a bit more	
+        # phased out, but we are keeping this check in for now while that transition bakes a bit more    
         if pluginInstalled="$(echo "${bundledPlugins}" | grep "^${plugin}:")"; then
             pluginInstalled="${pluginInstalled//[$'\r']}"
             # get the version of the plugin bundled
@@ -299,7 +322,6 @@ function resolveDependencies() {
 }
 
 function bundledPlugins() {
-    local JENKINS_WAR=/usr/lib/jenkins/jenkins.war
     if [ -f $JENKINS_WAR ]
     then
         TEMP_PLUGIN_DIR=/tmp/plugintemp.$$
@@ -335,14 +357,27 @@ function installedPlugins() {
     done
 }
 
+function jenkinsMajorMinorVersion() {
+    if [[ -f "$JENKINS_WAR" ]]; then
+        local version major minor
+        version="$(/etc/alternatives/java -jar $JENKINS_WAR --version)"
+        major="$(echo "$version" | cut -d '.' -f 1)"
+        minor="$(echo "$version" | cut -d '.' -f 2)"
+        echo "$major.$minor"
+    else
+        echo "ERROR file not found: $JENKINS_WAR"
+        return 1
+    fi
+}
+
 main() {
     local plugin version
 
     mkdir -p "$REF_DIR" || exit 1
 
     for file in $@; do
-	# clean up any dos file injected carriage returns
-	sed -i 's/\r$//' $file
+        # clean up any dos file injected carriage returns
+        sed -i 's/\r$//' $file
     done
 
     # Create lockfile manually before first run to make sure any explicit version set is used.
@@ -357,6 +392,15 @@ main() {
 
     echo -e "\nAnalyzing war..."
     bundledPlugins="$(bundledPlugins)"
+    
+    # Check if there's a version-specific update center, which is the case for LTS versions
+    jenkinsVersion="$(jenkinsMajorMinorVersion)"
+    if curl -fsL -o /dev/null "$JENKINS_UC/$jenkinsVersion"; then
+        JENKINS_UC_LATEST="$JENKINS_UC/$jenkinsVersion"
+        echo "Using version-specific update center: $JENKINS_UC_LATEST..."
+    else
+        JENKINS_UC_LATEST=
+    fi
 
     echo -e "\nDownloading plugins..."
     for plugin in `cat $@ | grep -v ^#`; do

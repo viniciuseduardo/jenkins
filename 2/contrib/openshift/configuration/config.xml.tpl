@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <hudson>
-  <disabledAdministrativeMonitors/>
-  <version>2.7.3</version>
+  <disabledAdministrativeMonitors>
+    ${ADMIN_MON_CONFIG}
+  </disabledAdministrativeMonitors>
+  <version>2.89.2</version>
   <numExecutors>5</numExecutors>
   <mode>NORMAL</mode>
   <useSecurity>true</useSecurity>
@@ -30,6 +32,7 @@
   <disableRememberMe>false</disableRememberMe>
   <workspaceDir>${ITEM_ROOTDIR}/workspace</workspaceDir>
   <buildsDir>${ITEM_ROOTDIR}/builds</buildsDir>
+  <markupFormatter class="hudson.markup.EscapedMarkupFormatter"/>
   <jdks/>
   <viewsTabBar class="hudson.views.DefaultViewsTabBar"/>
   <myViewsTabBar class="hudson.views.DefaultMyViewsTabBar"/>
@@ -49,6 +52,10 @@
   </views>
   <primaryView>All</primaryView>
   <slaveAgentPort>${JNLP_PORT}</slaveAgentPort>
+  <disabledAgentProtocols>
+    <string>JNLP-connect</string>
+    <string>JNLP2-connect</string>
+  </disabledAgentProtocols>
   <label>master</label>
   <nodeProperties/>
   <globalNodeProperties/>
